@@ -15,6 +15,7 @@ from utils.utils import *
 import cv2
 import albumentations as album
 from PIL import Image
+from loadjsonconfig import LoadJSON_config
 
 torch.cuda.empty_cache()
 
@@ -52,8 +53,8 @@ class ImageFolder(Dataset):
         
         print(type(img),img.shape, target)
             
-        
-        return img,target 
+            
+        return img, target 
 
 class SquarePad:
 	def __init__(self, image_size = 400):
@@ -92,28 +93,19 @@ class GrayScale:
 
 
 if __name__ == '__main__':
-
+    print("*** CLASSIFICATION MODEL TRAINING ...")
     torch.multiprocessing.freeze_support()
 
-    config = {
-        "epochs": 10,
-        "batch_size": 8,
-        "logs_dir": "logs",
-        "dataset_path": "/home/pevis/TOMO/Datav3",
-        "drop_out": 0.2,
-        "weight_decay": 0.0001,
-        "leaning_rate": 0.0001,
-        "num_workers": 2,
-        # "pass_threshold": 0.7,
-        # "fail_threshold": 0.3,
-        "classes": ['Bottle', 'Bottle_cap', 'Bottle_uncap', 'No_bottle'],
-        "use_class_weight": True
+    jsonconfig_path = "D:\TOMO_1\Classification_pytorch\config.json"
+    config = LoadJSON_config(jsonconfig_path)
 
-    }
+    print(type(eval(config.USE_CLASS_WEIGHT)))
     
-    device = torch.device("cuda:3")
 
-    logs_dir = config["logs_dir"]
+    device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
+    print("device:", device)
+
+    logs_dir = config.LOGS_DIR
     model_path = os.path.join(logs_dir,"model")
     log_dir = os.path.join(logs_dir,"LOG")
 
@@ -123,9 +115,7 @@ if __name__ == '__main__':
     
 
     anbu = album.Compose([
-
         #Convert_Rgb(),
-
         # SquarePad(), #them pixel 0 de thanh hinh vuong
         # transforms.Resize(512),
         # transforms.RandomHorizontalFlip(p=0.5),
@@ -140,18 +130,12 @@ if __name__ == '__main__':
         album.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), angle_lower=0.5, p=0.2),
         album.RandomShadow(num_shadows_lower=1, num_shadows_upper=1, shadow_dimension=5, shadow_roi=(0, 0.5, 1, 1), p=0.2),
         album.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.2),
-    
-    
-
-
         #GrayScale(),
 
     ])
     def albu(image, transform=anbu):
-
         image = image.convert("RGB")
         image = np.array(image)
-
         if transform:
             image =  transform(image=image)["image"]
         return image
@@ -174,21 +158,21 @@ if __name__ == '__main__':
 
 
 
-    dataset = datasets.ImageFolder(os.path.join(config["dataset_path"], 'Train'), transform=train_transforms)
+    dataset = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'Train'), transform=train_transforms)
     #dataset = ImageFolder(os.path.join(config["dataset_path"], 'Train'), total_classes=4,transform=train_transforms)
-    data_val = datasets.ImageFolder(os.path.join(config["dataset_path"], 'Test'), transform=test_transforms)
+    data_val = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'Test'), transform=test_transforms)
     dataloader = torch.utils.data.DataLoader(
 		dataset,
 		sampler = ImbalancedDatasetSampler(dataset), 
-		batch_size=config['batch_size'], 
+		batch_size=config.BATCH_SIZE, 
         #shuffle=True,
-		num_workers=config["num_workers"])
+		num_workers=config.NUM_WORKERS)
     dataloader_val = torch.utils.data.DataLoader(
         data_val,
         #sampler = ImbalancedDatasetSampler(data_val),
         batch_size=1,
         #shuffle=True,
-        num_workers=config["num_workers"])
+        num_workers=config.NUM_WORKERS)
 
     
 
@@ -197,7 +181,7 @@ if __name__ == '__main__':
     #phai su dung code nay de thay the
     num_ftrs = model_ft.classifier[1].in_features
     model_ft.classifier = nn.Sequential(
-        nn.Dropout(p=config["drop_out"], inplace=False),
+        nn.Dropout(p=config.DROP_OUT, inplace=False),
         nn.Linear(in_features=num_ftrs, out_features=4, bias=True)
     )
 
@@ -211,17 +195,17 @@ if __name__ == '__main__':
 
     # Optimizer
     #optimizer = optim.SGD(model_ft.parameters(), lr=1e-4, weight_decay=4e-5, momentum=0.9)
-    optimizer = optim.Adam(model_ft.parameters(), lr=config["leaning_rate"], betas=(0.9, 0.999), eps=1e-08, weight_decay=config['weight_decay'], amsgrad=False)
+    optimizer = optim.Adam(model_ft.parameters(), lr=config.LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08, weight_decay=config.WEIGHT_DECAY, amsgrad=False)
     # #exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
 
     writer = SummaryWriter(log_dir+'/')
 
     epoch = step = 0
 
-    if config['use_class_weight']:
-        cls_weight = choose_class_weight(os.path.join(config["dataset_path"], 'Train'), config["classes"])
+    if config.USE_CLASS_WEIGHT:
+        cls_weight = choose_class_weight(os.path.join(config.DATASET_PATH, 'Train'), config.CLASS_NAME)
         print("using class weight", cls_weight)
-        cls_weight_val = choose_class_weight(os.path.join(config["dataset_path"], 'Test'), config["classes"])
+        cls_weight_val = choose_class_weight(os.path.join(config.DATASET_PATH, 'Test'), config.CLASS_NAME)
         print("using class weight val", cls_weight_val)
         cls_weight = torch.FloatTensor(cls_weight).to(device)
         cls_weight_val = torch.FloatTensor(cls_weight_val).to(device)
@@ -232,7 +216,7 @@ if __name__ == '__main__':
     
     crossentropy = CrossEntropyLoss(weight=cls_weight)
     crossentropy_val = CrossEntropyLoss(weight=cls_weight_val)
-    while epoch < config['epochs']:
+    while epoch < config.NO_EPOCH:
         list_loss = []
         for img, label in iter(dataloader):
             model_ft.train()
@@ -243,15 +227,12 @@ if __name__ == '__main__':
 
             optimizer.zero_grad()
             theta = (model_ft(img))	
-
             loss = crossentropy(theta, label)
 
             loss.backward()
             optimizer.step()
             list_loss.append(loss)
             
-            
-
             print(f"Global Epoch: {epoch} ==== Loss: {loss}")
         mean_loss = sum(list_loss)/len(list_loss)
         model_ft.eval()
