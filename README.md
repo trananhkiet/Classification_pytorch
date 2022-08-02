@@ -2,7 +2,7 @@
 
 ### Project Structure
 ```
-SimilarityModule
+ClassificationModule
         |
         ├── logs
         |     ├──  LOG/
