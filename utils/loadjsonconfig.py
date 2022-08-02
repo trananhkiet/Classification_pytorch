@@ -2,7 +2,7 @@ import numpy as np
 import json
 
 
-class LoadJSON_config:
+class LoadJsonConfig:
     ''' 
     json_file: path to json config file 
     '''
@@ -21,6 +21,10 @@ class LoadJSON_config:
         self.LOGS_DIR = self.config['logs_dir']
         self.PASS_THRESHOLD = self.config['pass_threshold']
         self.FAIL_THRESHOLD = self.config['fail_threshold']
+        self.RESIZE = self.config['resize']
+        self.PADDING_SIZE = self.config['padding_size']
+        self.MEAN = self.config['mean']
+        self.STD = self.config['std']
 
 
     def __read_json(self):

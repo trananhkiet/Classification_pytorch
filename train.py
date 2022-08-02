@@ -1,205 +1,85 @@
 import os
 import torch
+import argparse
 from torch import nn
 from torch import optim
-from torchvision import datasets, transforms, models
 from torch.nn import CrossEntropyLoss
-from torch.utils.data import Dataset
-import numpy as np
+from torchvision import datasets, transforms, models
 from tensorboardX import SummaryWriter
 from utils.simple_tools import *
-from numpy import random
+from utils.choose_class_weight import *
 from utils.imbalanced import ImbalancedDatasetSampler
-from torchsummary import summary
-from utils.utils import *
-import cv2
-import albumentations as album
-from PIL import Image
-from loadjsonconfig import LoadJSON_config
+from utils.prepare_dataset import ImageFolder
+from utils.data_generator import *
+from utils.loadjsonconfig import LoadJsonConfig
+import utils.models as models
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 torch.cuda.empty_cache()
 
-
-class ImageFolder(Dataset):
-    def __init__(self, root_dir, transform=None, total_classes=None):
-        self.transform = transform
-        self.data = []
-        
-        if total_classes:
-            self.classnames  = os.listdir(root_dir)[:total_classes] # for test
-        else:
-            self.classnames = os.listdir(root_dir)
-            
-        for index, label in enumerate(self.classnames):
-            root_image_name = os.path.join(root_dir, label)
-            
-            for i in os.listdir(root_image_name):
-                full_path = os.path.join(root_image_name, i)
-                self.data.append((full_path, index))
-    
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, index):
-        data, target = self.data[index]
-        img = np.array(Image.open(data))
-        
-        if self.transform:
-            augmentations = self.transform(image=img)
-            img = augmentations["image"]
-        
-        target = torch.from_numpy(np.array(target))
-        img = torch.from_numpy(img)
-        
-        print(type(img),img.shape, target)
-            
-            
-        return img, target 
-
-class SquarePad:
-	def __init__(self, image_size = 400):
-		self.image_size= image_size
-
-	def __call__(self, image):
-		if image.size[0] >= image.size[1]:
-			self.image_size = image.size[0]
-		else:
-			self.image_size = image.size[1]
-
-		p_top = (self.image_size - image.size[1])//2
-		p_bottom = self.image_size - image.size[1] - p_top
-
-		p_right = (self.image_size - image.size[0])//2
-		p_left = self.image_size - image.size[0] - p_right
-
-		padding = (p_left, p_top, p_right, p_bottom)
-
-		image = transforms.functional.pad(image, padding, 0, 'constant')
-		return image
-
-class Convert_Rgb:
-	def __call__(self, image):
-		image = image.convert("RGB")
-		return image
-
-class GrayScale:
-    def __init__(self, p=0.5):
-        self.p = p
-    
-    def __call__(self, image):
-        if random.rand() > self.p:
-            image = transforms.functional.to_grayscale(image, 3)
-        return image
-
-
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Evaluate')
+    parser.add_argument('--jsonconfig_path', type=str, help='path to json file')
+    parser.add_argument('--model_name', type=str, help='model name')
+    parser.add_argument('--num_classes', type=int, help='number of classes')
+    args = parser.parse_args()
+
+    jsonconfig_path = args.jsonconfig_path
+    model_name = args.model_name
+    num_classes = args.num_classes
+
     print("*** CLASSIFICATION MODEL TRAINING ...")
     torch.multiprocessing.freeze_support()
 
-    jsonconfig_path = "D:\TOMO_1\Classification_pytorch\config.json"
-    config = LoadJSON_config(jsonconfig_path)
+    config = LoadJsonConfig(jsonconfig_path)
 
     print(type(eval(config.USE_CLASS_WEIGHT)))
-    
 
-    device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print("device:", device)
 
     logs_dir = config.LOGS_DIR
-    model_path = os.path.join(logs_dir,"model")
-    log_dir = os.path.join(logs_dir,"LOG")
+    model_path = os.path.join(logs_dir, "model")
+    log_dir = os.path.join(logs_dir, "LOG")
 
     os.makedirs(logs_dir, exist_ok=True)
     os.makedirs(model_path, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-    
-
-    anbu = album.Compose([
-        #Convert_Rgb(),
-        # SquarePad(), #them pixel 0 de thanh hinh vuong
-        # transforms.Resize(512),
-        # transforms.RandomHorizontalFlip(p=0.5),
-        # transforms.RandomVerticalFlip(p=0.5),
-        # transforms.GaussianBlur(3, sigma=(0.1, 2.0), p=0.5),
-        album.Resize(512, 512),
-        album.HorizontalFlip(p=0.2),
-        album.VerticalFlip(p=0.2),
-        album.GaussianBlur(blur_limit=(3, 7), p=0.2),
-        album.RandomRain(brightness_coefficient=0.7, drop_width=1, blur_value=5, p=0.2),
-        album.RandomSnow(brightness_coeff=2.5, snow_point_lower=0.3, snow_point_upper=0.5, p=0.2),
-        album.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), angle_lower=0.5, p=0.2),
-        album.RandomShadow(num_shadows_lower=1, num_shadows_upper=1, shadow_dimension=5, shadow_roi=(0, 0.5, 1, 1), p=0.2),
-        album.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.2),
-        #GrayScale(),
-
-    ])
-    def albu(image, transform=anbu):
-        image = image.convert("RGB")
-        image = np.array(image)
-        if transform:
-            image =  transform(image=image)["image"]
-        return image
 
     train_transforms = transforms.Compose([
-        SquarePad(), # them pixel 0 de thanh hinh vuong
-        # transforms.Resize(512),
+        SquarePad(image_size=config.PADDING_SIZE),
         transforms.Lambda(albu),
-        #GrayScale(),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        transforms.Normalize(config.MEAN, config.STD)
     ])
 
-    test_transforms = transforms.Compose([
-        SquarePad(),
-        transforms.Resize(512),
+    valid_transforms = transforms.Compose([
+        SquarePad(image_size=config.PADDING_SIZE),
+        transforms.Resize(config.RESIZE),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.409],[0.229, 0.224, 0.225])
+        transforms.Normalize(config.MEAN, config.STD)
     ])
 
-
-
-    dataset = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'Train'), transform=train_transforms)
-    #dataset = ImageFolder(os.path.join(config["dataset_path"], 'Train'), total_classes=4,transform=train_transforms)
-    data_val = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'Test'), transform=test_transforms)
+    dataset = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'train'), transform=train_transforms)
+    data_val = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'val'), transform=valid_transforms)
+    
     dataloader = torch.utils.data.DataLoader(
-		dataset,
-		sampler = ImbalancedDatasetSampler(dataset), 
-		batch_size=config.BATCH_SIZE, 
-        #shuffle=True,
-		num_workers=config.NUM_WORKERS)
+        dataset,
+        sampler=ImbalancedDatasetSampler(dataset),
+        batch_size=config.BATCH_SIZE,
+        num_workers=config.NUM_WORKERS
+    )
     dataloader_val = torch.utils.data.DataLoader(
         data_val,
-        #sampler = ImbalancedDatasetSampler(data_val),
         batch_size=1,
-        #shuffle=True,
-        num_workers=config.NUM_WORKERS)
-
-    
-
-    #Model
-    model_ft = models.mobilenet_v2(pretrained=True)
-    #phai su dung code nay de thay the
-    num_ftrs = model_ft.classifier[1].in_features
-    model_ft.classifier = nn.Sequential(
-        nn.Dropout(p=config.DROP_OUT, inplace=False),
-        nn.Linear(in_features=num_ftrs, out_features=4, bias=True)
+        num_workers=config.NUM_WORKERS
     )
+    # Model
+    model, params_to_update = models.initialize_model(model_name=model_name, num_classes=num_classes)
 
-    # model_ft.classifier[-1] = nn.Linear(1280, 4)
-    # )
-    #model_ft.load_state_dict(torch.load('log_model_pretrain_adam\model\model_1000\model.pth'))
-    model_ft = model_ft.to(device)
-    
-    # print(model_ft)
-    #summary(model_ft, (3, 512, 512))
-
-    # Optimizer
-    #optimizer = optim.SGD(model_ft.parameters(), lr=1e-4, weight_decay=4e-5, momentum=0.9)
-    optimizer = optim.Adam(model_ft.parameters(), lr=config.LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08, weight_decay=config.WEIGHT_DECAY, amsgrad=False)
-    # #exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
-
+    optimizer = optim.Adam(params_to_update, lr=config.LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08, weight_decay=config.WEIGHT_DECAY, amsgrad=False)
     writer = SummaryWriter(log_dir+'/')
-
     epoch = step = 0
 
     if config.USE_CLASS_WEIGHT:
@@ -213,20 +93,20 @@ if __name__ == '__main__':
         cls_weight = None
         cls_weight_val = None
 
-    
     crossentropy = CrossEntropyLoss(weight=cls_weight)
     crossentropy_val = CrossEntropyLoss(weight=cls_weight_val)
+    model.to(device)
+
     while epoch < config.NO_EPOCH:
         list_loss = []
         for img, label in iter(dataloader):
-            model_ft.train()
+            model.train()
 
             img = img.to(device)
             label = label.to(device)
-            #print(label)
 
             optimizer.zero_grad()
-            theta = (model_ft(img))	
+            theta = (model(img))	
             loss = crossentropy(theta, label)
 
             loss.backward()
@@ -235,21 +115,20 @@ if __name__ == '__main__':
             
             print(f"Global Epoch: {epoch} ==== Loss: {loss}")
         mean_loss = sum(list_loss)/len(list_loss)
-        model_ft.eval()
+        model.eval()
         with torch.no_grad():
-            val = val_loss(dataloader_val, model_ft, device, crossentropy_val) # From simple_tools
-            acc_train = accuracy(dataloader, model_ft, device)
-            acc_val = accuracy(dataloader_val, model_ft, device)
-            
+            val = val_loss(dataloader_val, model, device, crossentropy_val)
+            acc_train = accuracy(dataloader, model, device)
+            acc_val = accuracy(dataloader_val, model, device)
 
-            torch.save(model_ft.state_dict(), model_path + '/' + str(epoch) + '.pth')
+            torch.save(model.state_dict(), model_path + '/' + str(epoch) + '.pth')
         print(val, acc_train, acc_val)
-        writer.add_scalars('Loss',{"Train": mean_loss, "Val": val}, epoch)
-        writer.add_scalars('Accuracy',{"Train": acc_train, "Val": acc_val}, epoch)
-
+        writer.add_scalars('Loss', {"Train": mean_loss, "Val": val}, epoch)
+        writer.add_scalars('Accuracy', {"Train": acc_train, "Val": acc_val}, epoch)
 
         print("Evaluate model: ........")
-        #exp_lr_scheduler.step()
         epoch += 1
 
     print("end")
+
+# python train.py --jsonconfig_path "config.json" --model_name="mobilenet_v2" --num_classes=4

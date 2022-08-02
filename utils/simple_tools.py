@@ -26,7 +26,7 @@ def accuracy(data_iter, model, device):
 
 	return count_true * 100 / total
 
-def val_loss(data_iter, model, device):
+def val_loss(data_iter, model, device, crossentropy_val):
 	loss = total = 0
 
 	for img, label in iter(data_iter):
@@ -36,7 +36,7 @@ def val_loss(data_iter, model, device):
 		# print(label)
 		score = model(img)
 		total += 1
-		loss += CrossEntropyLoss()(score, label).cpu().numpy()
+		loss += crossentropy_val(score, label).cpu().numpy()
 
 	return loss / total
 
