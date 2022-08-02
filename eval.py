@@ -8,18 +8,17 @@ from sklearn.metrics import confusion_matrix
 from PIL import Image
 import numpy as np
 from utils.loadjsonconfig import LoadJsonConfig
-import utils.models as models
+from utils.models import initialize_model
 
 def load_model(net, model_path):
-    load_weights = torch.load(model_path)
+    load_weights = torch.load(model_path, map_location=torch.device('cpu'))
     net.load_state_dict(load_weights)
     return net
 
 class Predictor():
     def __init__(self, classnames, model_name, model_path, num_classes):
         self.class_dict = classnames
-
-        model, params_to_update = models.initialize_model(model_name=model_name, num_classes=num_classes)
+        model = initialize_model(model_name=model_name, num_classes=num_classes)
         model.eval()
         # prepare model
         self.model = load_model(model, model_path=model_path)
@@ -44,17 +43,13 @@ class Predictor():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate')
     parser.add_argument('--jsonconfig_path', type=str, help='path to json file')
-    parser.add_argument('--num_classes', type=int, help='number of classes')
     parser.add_argument('--model_name', type=str, help='model name')
     parser.add_argument('--model_path', type=str, help='path to model')
-    parser.add_argument('--testset_path', type=str, help='path to testset')
     args = parser.parse_args()
 
     jsonconfig_path = args.jsonconfig_path
-    num_classes = args.num_classes
     model_name = args.model_name
     model_path = args.model_path
-    testset_path = args.testset_path
 
     config = LoadJsonConfig(jsonconfig_path)
 
@@ -81,9 +76,9 @@ if __name__ == '__main__':
     for _, label in iter(dataloader_test):
         y_true.extend(label.numpy())
 
-    list_filename = glob.glob(testset_path+"/*/*.png")
+    list_filename = glob.glob(config.DATASET_PATH+"/test"+"/*/*.png")
     list_predict = []
-    predictor = Predictor(classnames=classnames, model_name=model_name, model_path=model_path, num_classes=num_classes)
+    predictor = Predictor(classnames=classnames, model_name=model_name, model_path=model_path, num_classes=len(config.CLASS_NAME))
     for i in range(len(list_filename)):
         img = Image.open(list_filename[i])
         img = img.convert("RGB")

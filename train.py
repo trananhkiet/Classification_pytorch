@@ -4,17 +4,14 @@ import argparse
 from torch import nn
 from torch import optim
 from torch.nn import CrossEntropyLoss
-from torchvision import datasets, transforms, models
+from torchvision import datasets, transforms
 from tensorboardX import SummaryWriter
 from utils.simple_tools import *
 from utils.choose_class_weight import *
 from utils.imbalanced import ImbalancedDatasetSampler
-from utils.prepare_dataset import ImageFolder
 from utils.data_generator import *
 from utils.loadjsonconfig import LoadJsonConfig
-import utils.models as models
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+from utils.models import initialize_model
 
 torch.cuda.empty_cache()
 
@@ -22,21 +19,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate')
     parser.add_argument('--jsonconfig_path', type=str, help='path to json file')
     parser.add_argument('--model_name', type=str, help='model name')
-    parser.add_argument('--num_classes', type=int, help='number of classes')
     args = parser.parse_args()
 
     jsonconfig_path = args.jsonconfig_path
     model_name = args.model_name
-    num_classes = args.num_classes
 
     print("*** CLASSIFICATION MODEL TRAINING ...")
     torch.multiprocessing.freeze_support()
 
     config = LoadJsonConfig(jsonconfig_path)
 
-    print(type(eval(config.USE_CLASS_WEIGHT)))
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    specific_gpu = config.GPU
+    device = torch.device("cuda:"+specific_gpu if torch.cuda.is_available() else "cpu")
     print("device:", device)
 
     logs_dir = config.LOGS_DIR
@@ -76,13 +70,18 @@ if __name__ == '__main__':
         num_workers=config.NUM_WORKERS
     )
     # Model
-    model, params_to_update = models.initialize_model(model_name=model_name, num_classes=num_classes)
+    model = initialize_model(model_name=model_name, num_classes=len(config.CLASS_NAME))
+    model = model.train()
 
-    optimizer = optim.Adam(params_to_update, lr=config.LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08, weight_decay=config.WEIGHT_DECAY, amsgrad=False)
+    if config.OPTIMIZER == "Adam":
+        optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE, betas=(0.9, 0.999), eps=1e-08, weight_decay=config.WEIGHT_DECAY, amsgrad=False)
+    else:
+        optimizer = optim.SGD(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY, momentum=config.MOMENTUM)
+
     writer = SummaryWriter(log_dir+'/')
     epoch = step = 0
 
-    if config.USE_CLASS_WEIGHT:
+    if eval(config.USE_CLASS_WEIGHT):
         cls_weight = choose_class_weight(os.path.join(config.DATASET_PATH, 'Train'), config.CLASS_NAME)
         print("using class weight", cls_weight)
         cls_weight_val = choose_class_weight(os.path.join(config.DATASET_PATH, 'Test'), config.CLASS_NAME)
@@ -131,4 +130,4 @@ if __name__ == '__main__':
 
     print("end")
 
-# python train.py --jsonconfig_path "config.json" --model_name="mobilenet_v2" --num_classes=4
+# python train.py --jsonconfig_path "config.json" --model_name="mobilenet_v2"

@@ -1,11 +1,14 @@
 {
-    "epochs": 10,
+    "epochs": 100,
     "batch_size": 32,
+    "gpu": "5",
     "logs_dir": "logs",
-    "dataset_path": "E:\\TaiLam_Bosco\\a\\data_aug_13_7_update",
+    "dataset_path": "D:\\TOMO_1\\Classification_pytorch\\data_aug_13_7_update",
     "drop_out": 0.2,
+    "optimizer": "SGD",
+    "momentum": 0.9,
     "weight_decay": 0.0001,
-    "leaning_rate": 0.0001,
+    "leaning_rate": 0.000001,
     "num_workers": 0,
     "classes": [
         "bottle_labeled",
@@ -13,7 +16,7 @@
         "finger_labeled",
         "finger_no_labeled"
     ],
-    "use_class_weight": "True",
+    "use_class_weight": "False",
     "pass_threshold": 0.7,
     "fail_threshold": 0.3,
     "resize": 224,

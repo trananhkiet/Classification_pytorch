@@ -1,5 +1,3 @@
-from ctypes import resize
-from numpy import random
 import numpy as np
 from torchvision import transforms
 import albumentations as album
