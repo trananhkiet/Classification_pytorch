@@ -14,6 +14,7 @@ from utils.loadjsonconfig import LoadJsonConfig
 from utils.models import initialize_model
 
 torch.cuda.empty_cache()
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate')

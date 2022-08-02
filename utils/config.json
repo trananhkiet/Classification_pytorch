@@ -5,7 +5,7 @@
     "logs_dir": "logs",
     "dataset_path": "D:\\TOMO_1\\Classification_pytorch\\data_aug_13_7_update",
     "drop_out": 0.2,
-    "optimizer": "SGD",
+    "optimizer": "Adam",
     "momentum": 0.9,
     "weight_decay": 0.0001,
     "leaning_rate": 0.000001,
