@@ -1,6 +1,6 @@
 import torch
 import argparse
-from torchvision import datasets
+from torchvision import datasets, transforms
 from utils.data_generator import *
 import glob
 import os
@@ -33,7 +33,7 @@ class Predictor():
         predicted_label = self.class_dict[max_id]
         return predicted_label, list_predict
 
-    def predict(self, img, list_predict):
+    def predict(self, img, list_predict, test_transforms):
         # prepare network
         img = test_transforms(img)
         img = img.unsqueeze_(0)  # (channel, height, width) -> (1, channel, height, width)
@@ -75,8 +75,8 @@ if __name__ == '__main__':
     #     num_workers=config.NUM_WORKERS
     # )
 
-    y_pred = []
-    y_true = []
+    # y_pred = []
+    # y_true = []
     # for _, label in iter(dataloader_test):
     #     y_true.extend(label.numpy())
 
@@ -123,12 +123,14 @@ if __name__ == '__main__':
         im.save(im_bytes, format='PNG')
         return im_bytes
 
+    y_true = []
     for i in tqdm(range(len(list_filename))):
-        img = Image.open(list_filename[i])
-        img = img.convert("RGB")
-        res, output, y_pred = predictor.predict(img, list_predict)
         y_true_i = os.path.basename(os.path.dirname(list_filename[i]))
         y_true.append(classnames.index(y_true_i))
+        img = Image.open(list_filename[i])
+        img = img.convert("RGB")
+
+        res, output, y_pred = predictor.predict(img, list_predict, test_transforms)
         image_data = resize_image_data(list_filename[i], (image_display_size, image_display_size))
 
         Data = [0] * len(Header)
