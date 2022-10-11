@@ -11,8 +11,8 @@ from utils.choose_class_weight import *
 from utils.imbalanced import ImbalancedDatasetSampler
 from utils.data_generator import *
 from utils.loadjsonconfig import LoadJsonConfig
-from utils.models import initialize_model
-
+from utils.models import initialize_model, train_model
+from tqdm import tqdm
 torch.cuda.empty_cache()
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
@@ -97,38 +97,5 @@ if __name__ == '__main__':
     crossentropy_val = CrossEntropyLoss(weight=cls_weight_val)
     model.to(device)
 
-    while epoch < config.NO_EPOCH:
-        list_loss = []
-        for img, label in iter(dataloader):
-            model.train()
-
-            img = img.to(device)
-            label = label.to(device)
-
-            optimizer.zero_grad()
-            theta = (model(img))	
-            loss = crossentropy(theta, label)
-
-            loss.backward()
-            optimizer.step()
-            list_loss.append(loss)
-            
-            print(f"Global Epoch: {epoch} ==== Loss: {loss}")
-        mean_loss = sum(list_loss)/len(list_loss)
-        model.eval()
-        with torch.no_grad():
-            val = val_loss(dataloader_val, model, device, crossentropy_val)
-            acc_train = accuracy(dataloader, model, device)
-            acc_val = accuracy(dataloader_val, model, device)
-
-            torch.save(model.state_dict(), model_path + '/' + str(epoch) + '.pth')
-        print(val, acc_train, acc_val)
-        writer.add_scalars('Loss', {"Train": mean_loss, "Val": val}, epoch)
-        writer.add_scalars('Accuracy', {"Train": acc_train, "Val": acc_val}, epoch)
-
-        print("Evaluate model: ........")
-        epoch += 1
-
-    print("end")
-
-# python train.py --jsonconfig_path "config.json" --model_name="mobilenet_v2"
+    dataloader_dict = {"train": dataloader, "val": dataloader_val}
+    train_model(model, model_path, dataloader_dict, criterion=crossentropy, optimizer=optimizer, num_epochs=config.NO_EPOCH)
