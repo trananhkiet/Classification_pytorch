@@ -68,17 +68,17 @@ if __name__ == '__main__':
         transforms.Normalize(config.MEAN, config.STD)
     ])
 
-    data_test = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'test'), transform=test_transforms)
-    dataloader_test = torch.utils.data.DataLoader(
-        data_test,
-        batch_size=1,
-        num_workers=config.NUM_WORKERS
-    )
+    # data_test = datasets.ImageFolder(os.path.join(config.DATASET_PATH, 'test'), transform=test_transforms)
+    # dataloader_test = torch.utils.data.DataLoader(
+    #     data_test,
+    #     batch_size=1,
+    #     num_workers=config.NUM_WORKERS
+    # )
 
     y_pred = []
     y_true = []
-    for _, label in iter(dataloader_test):
-        y_true.extend(label.numpy())
+    # for _, label in iter(dataloader_test):
+    #     y_true.extend(label.numpy())
 
     list_filename = glob.glob(config.DATASET_PATH+"/test"+"/*/*.png")
     list_predict = []
@@ -127,7 +127,8 @@ if __name__ == '__main__':
         img = Image.open(list_filename[i])
         img = img.convert("RGB")
         res, output, y_pred = predictor.predict(img, list_predict)
-
+        y_true_i = os.path.basename(os.path.dirname(list_filename[i]))
+        y_true.append(classnames.index(y_true_i))
         image_data = resize_image_data(list_filename[i], (image_display_size, image_display_size))
 
         Data = [0] * len(Header)
