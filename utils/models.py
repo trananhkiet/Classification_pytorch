@@ -150,7 +150,9 @@ def initialize_model(model_name, num_classes):
     return model
 
 def train_model(net, save_model_path, dataloader_dict, criterion, optimizer, num_epochs):
-
+    # declare device
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    print("device:", device)
 
     # chuyen network vao trong device GPU/CPU
     # net = DataParallel(net,device_ids=[0, 1, 2])
