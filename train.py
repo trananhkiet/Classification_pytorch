@@ -98,4 +98,4 @@ if __name__ == '__main__':
     model.to(device)
 
     dataloader_dict = {"train": dataloader, "val": dataloader_val}
-    train_model(model, model_path, dataloader_dict, criterion=crossentropy, optimizer=optimizer, num_epochs=config.NO_EPOCH)
+    train_model(model, model_path, dataloader_dict, criterion=crossentropy, optimizer=optimizer, num_epochs=config.NO_EPOCH, device=device)
