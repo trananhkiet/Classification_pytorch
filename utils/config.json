@@ -1,9 +1,9 @@
 {
     "epochs": 100,
     "batch_size": 32,
-    "gpu": "5",
+    "gpu": "0",
     "logs_dir": "logs",
-    "dataset_path": "D:\\TOMO_1\\Classification_pytorch\\data_aug_13_7_update",
+    "dataset_path": "D:\\Classification_Module\\Classification_pytorch\\Label_classification",
     "drop_out": 0.2,
     "optimizer": "Adam",
     "momentum": 0.9,
@@ -17,8 +17,8 @@
         "finger_no_labeled"
     ],
     "use_class_weight": "False",
-    "pass_threshold": 0.7,
-    "fail_threshold": 0.3,
+    "pass_threshold": 0.5,
+    "fail_threshold": 0.5,
     "resize": 224,
     "padding_size": 512,
     "mean": [0.485, 0.456, 0.406],
