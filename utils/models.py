@@ -3,6 +3,7 @@ from torch import nn
 import numpy as np
 import torch
 import os
+from tqdm import tqdm
 
 def initialize_model(model_name, num_classes):
     model = None
@@ -149,19 +150,15 @@ def initialize_model(model_name, num_classes):
     # return model, params_to_update
     return model
 
-def train_model(net, save_model_path, dataloader_dict, criterion, optimizer, num_epochs, device):
+def train_model(net, save_model_path, dataloader_dict, criterion, optimizer, num_epochs, writer, device):
     # declare device
     # device = torch.device("cuda:"+config.gpu if torch.cuda.is_available() else "cpu")
     # print("device:", device)
-
-    # chuyen network vao trong device GPU/CPU
     # net = DataParallel(net,device_ids=[0, 1, 2])
     net.to(device)
-    # tang toc do tinh toan
     torch.backends.cudnn.benchmark = True
 
     for epoch in range(num_epochs):
-        print("Epoch {}/{}".format(epoch, num_epochs))
 
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -171,10 +168,10 @@ def train_model(net, save_model_path, dataloader_dict, criterion, optimizer, num
             epoch_loss = 0.0
             epoch_corrects = 0
 
-            if (epoch == 0) and (phase == 'train'):
-                continue
-            for inputs, labels in dataloader_dict[phase]:
-                # chuyen inputs va labels vao trong device GPU/CPU
+         
+            progress_bar = tqdm(dataloader_dict[phase])
+            for inputs, labels in progress_bar:
+                
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -184,28 +181,40 @@ def train_model(net, save_model_path, dataloader_dict, criterion, optimizer, num
                     outputs = net(inputs)
                     loss = criterion(outputs, labels)
 
-                    # outputs có sô hàng = batch_size
-                    #         có số cột = số lượng class
-                    # outputs là matran 4x2
-                    # tìm giá trị lớn nhất trong mỗi hàng
                     _, preds = torch.max(outputs, 1)
 
-                    # dùng loss để backward
-                    # backward tính đạo hàm loss để updata parameter
                     if phase == 'train':
                         loss.backward()
                         # update optimizer
-                        optimizer.step()  # step() để update parameter cho optimizer
+                        optimizer.step()  
 
                     epoch_loss += loss.item() * inputs.size(0)
                     epoch_corrects += torch.sum(preds == labels.data)
 
+                    progress_bar.set_description( \
+                    'Epoch: {}/{}. loss = {}'.format(epoch, num_epochs, loss.item() * inputs.size(0)))
+                    progress_bar.update()
+
+                    
+
             epoch_loss = epoch_loss / len(dataloader_dict[phase].dataset)
             epoch_accuracy = epoch_corrects.double() / len(dataloader_dict[phase].dataset)
             print("{} loss:{:.4f} Acc: {:4f}".format(phase, epoch_loss, epoch_accuracy))
-            # if phase == 'val':
-            #     lr_scheduler.step(epoch_loss)
 
+            if phase == 'train':
+                writer.add_scalars('Loss', {'Train': epoch_loss}, epoch)
+
+                writer.add_scalars('Acc', {'Train': epoch_accuracy}, epoch)
+
+            if phase == 'val':
+                writer.add_scalars('Loss', {'Val': epoch_loss}, epoch)
+
+                writer.add_scalars('Acc', {'Val': epoch_accuracy}, epoch)
+
+
+            writer.flush()
+            
+        writer.close()
         torch.save(net.state_dict(), os.path.join(save_model_path, 'epoch_{}.pth'.format(epoch)))
 
 def set_parameter_requires_grad(model, feature_extract):
@@ -222,3 +231,4 @@ def set_params_to_update(model, feature_extract):
     else:
         params_to_update = model.parameters()
     return params_to_update
+

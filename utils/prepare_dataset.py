@@ -2,6 +2,8 @@ from PIL import Image
 import torch.utils.data as data
 import glob
 import os
+from pathlib import Path
+import os.path
 
 
 def make_datapath_list(root_path, phase='train'):
@@ -22,19 +24,16 @@ class MyDataset(data.Dataset):
     
     def __getitem__(self, idx):
         img_path = self.file_list[idx]
-        img = Image.open(img_path)
-        
-        img_transformed = self.transform(img, self.phase)
-        
-        if self.phase == 'train':
-            label = img_path.split('\\')[-2]
-        elif self.phase == 'val':
-            label = img_path.split('\\')[-2]
-        elif self.phase == 'test':
-            label = img_path.split('\\')[-2]
+        img = Image.open(img_path).convert('RGB')
 
-        for index, lbl in enumerate(self.classnames):
-            if label == lbl:
-                label = index
+        img_transformed = self.transform(img, self.phase)
+
+        dir_name = Path(img_path).parents[0]
+        label = os.path.basename(dir_name)
         
-        return img_transformed, label
+        index_label = self.classnames.index(label)
+        
+        if label not in self.classnames:
+            raise Exception(f"Label {label} not in classname!")
+        
+        return img_transformed, index_label

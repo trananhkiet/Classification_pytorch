@@ -104,11 +104,16 @@ class Predictor():
         y_true = []
         for i in tqdm(range(len(list_filename))):
             y_true_i = os.path.basename(os.path.dirname(list_filename[i]))
+            print("y_true_i:", y_true_i)
+            print("y_true_index:", self.config.CLASS_NAME.index(y_true_i))
+            
             y_true.append(self.config.CLASS_NAME.index(y_true_i))
             img = Image.open(list_filename[i])
             img = img.convert("RGB")
 
             res, output, y_pred = self.predict(img, list_predict)
+            print("y_pred:", res)
+            print("----------------------------------------")
             image_data = resize_image_data(list_filename[i], (image_display_size, image_display_size))
 
             Data = [0] * len(Header)
@@ -164,4 +169,4 @@ if __name__ == '__main__':
 
     predictor.export_excel()
 
-    
+# python eval.py --jsonconfig_path utils/config.json --model_name "mobilenet_v2" --model_path logs/model/epoch_13.pth

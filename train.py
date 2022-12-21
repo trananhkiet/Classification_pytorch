@@ -12,7 +12,6 @@ from utils.imbalanced import ImbalancedDatasetSampler
 from utils.loadjsonconfig import LoadJsonConfig
 from utils.models import initialize_model, train_model
 from utils.prepare_dataset import MyDataset, make_datapath_list
-from tqdm import tqdm
 from utils.image_transform import Image_transform
 
 torch.cuda.empty_cache()
@@ -54,8 +53,8 @@ if __name__ == '__main__':
     val_dataset = MyDataset(val_list, transform=Image_transform(config), phase='val', classnames=config.CLASS_NAME)
 
 
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, config.BATCH_SIZE, shuffle=True)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, config.BATCH_SIZE, shuffle=False)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.BATCH_SIZE, num_workers=config.NUM_WORKERS, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=config.BATCH_SIZE, num_workers=config.NUM_WORKERS, shuffle=False)
 
     dataloader_dict = {'train': train_dataloader, 'val': val_dataloader}
     
@@ -71,4 +70,9 @@ if __name__ == '__main__':
     epoch = step = 0
 
     criterion = nn.CrossEntropyLoss()
-    train_model(model, model_path, dataloader_dict, criterion=criterion, optimizer=optimizer, num_epochs=config.NO_EPOCH, device=device)
+    train_model(model, model_path, dataloader_dict, criterion=criterion, optimizer=optimizer, num_epochs=config.NO_EPOCH, writer=writer, device=device)
+
+
+
+# /home/finn/Classification_pytorch/venv/bin/activate
+# python train.py --jsonconfig_path "utils/config.json" --model_name="mobilenet_v2"
