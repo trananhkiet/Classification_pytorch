@@ -31,7 +31,17 @@ class SquarePad:
 class Augmentation():
     def __init__(self, augment_list=None, random_mode = False, input_image_size = None):
 
-        self.available_augment = ["random_brightness", "shuffle_channel", "to_gray"]
+        self.available_augment = [
+                                  "random_brightness", 
+                                  "shuffle_channel", 
+                                  "to_gray", 
+                                  "rgb_shift", 
+                                  "huesaturationvalue",
+                                  "clahe",
+                                  "random_gamma",
+                                  "blur",
+                                  "median_blur",
+                                  ]
         self.augment_list = augment_list
         self.random_mode = random_mode
         self.input_image_size = input_image_size
@@ -58,7 +68,7 @@ class Augmentation():
         transform_list = self.get_transform()
         train_transforms = A.Compose(transform_list)
         image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        image =train_transforms(image=image)['image']
+        image = train_transforms(image=image)['image']
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return Image.fromarray(image, 'RGB')
 
@@ -72,8 +82,7 @@ class Augmentation():
     def get_augment(self, augment_name):
 
         if augment_name == "random_crop": 
-            crop_size = self.input_image_size - int(self.input_image_size*0.2)
-            return A.RandomResizedCrop(crop_size, crop_size, scale=(0.33, 1.0), ratio=(0.7, 1.35))
+            return A.RandomResizedCrop(self.input_image_size, self.input_image_size, scale=(0.8, 1.0), ratio=(0.7, 1.35))
 
         elif augment_name == "random_brightness":
             return A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), contrast_limit=(-0.2, 0.2), p=0.3)
@@ -83,9 +92,30 @@ class Augmentation():
 
         elif augment_name == "to_gray":
             return A.ToGray(p=0.5)
+            
+        elif augment_name == "rgb_shift":
+            return A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, always_apply=False, p=0.5)
+
+        elif augment_name == "huesaturationvalue":
+            return A.HueSaturationValue (hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, always_apply=False, p=0.5)
+
+        elif augment_name == "clahe":
+            return A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5)
+
+        elif augment_name == "random_gamma":
+            return A.RandomGamma(gamma_limit=(80, 120), eps=None, always_apply=False, p=0.5)
+
+        elif augment_name == "blur":
+            return A.Blur(blur_limit=7, always_apply=False, p=0.5)
+
+        elif augment_name == "median_blur":
+            return A.MedianBlur(blur_limit=7, always_apply=False, p=0.5)
+
+        elif augment_name == "imagecompression":
+            return A.ImageCompression(quality_lower=99, quality_upper=100, always_apply=False, p=0.5)
 
         else:
-            
+
             raise Exception("Augment not available")
 
 
